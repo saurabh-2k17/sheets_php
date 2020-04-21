@@ -10,13 +10,13 @@ $client->setAccessType('offline');
 $client->setAuthConfig(__DIR__ . '/credentials.json');
 $service = new Google_Service_Sheets($client);
 
-$spreadsheetId = "1A4RASO6eKfG-l2VF6zLnW8U5C1lRIRHWqQnir2n824k";
+$spreadsheetId = "1RbeKJys9L3p37tEg_-wQYZSdisAzPsXhZW5LwD5q8Wc";
 
 //User Input for reading columns.
 echo "Please mention the columns to be read \n";
 $read_input = rtrim(fgets(STDIN));
 
-$get_range = "Contrib issues!" . $read_input;
+$get_range = "Front-end Issues!" . $read_input;
 
 //Request to get data from spreadsheet.
 $response = $service->spreadsheets_values->get($spreadsheetId, $get_range);
@@ -40,20 +40,33 @@ if (empty($values)) {
     foreach ($values as $key => $value) {
 
         $issue_url = $value[2];
-        $author = $value[3];
+
         if (isset($value[4])) {
-          $author_comment = $value[4];
+            $author = $value[4];
         } else {
-          $author_comment = '';
+            $author = '';
         }
 
         if (isset($value[5])) {
-          $issue_picked_date = $value[5];
+            $author_comment = $value[5];
         } else {
-          $issue_picked_date = '';
+            $author_comment = '';
         }
-        
+
+        if (isset($value[6])) {
+            $issue_picked_date = $value[6];
+        } else {
+            $issue_picked_date = '';
+        }
+
         $issue_obj = (explode("/", $issue_url));
+
+        if (isset($issue_obj[4])) {
+            $project_name = $issue_obj[4];
+        } else {
+            print_r("\033[01;31mProject name not found " . $update_start_index . "\033[0m\n");
+        }
+
         if (isset($issue_obj[6])) {
             $issue_id = $issue_obj[6];
         } else {
@@ -76,13 +89,13 @@ if (empty($values)) {
 
             if ($issue_status_id !== '1' && $issue_status_id !== '8' && $issue_status_id !== '13' && $issue_status_id !== '14' && $issue_status_id !== '15' && $issue_status_id !== '16') {
                 $closed_date = date('d/m/Y', $changed_date);
-                
+
                 $issue_comment_obj = $issue_arrayobj->list[0]->comments;
                 $issue_comment_obj = array_reverse($issue_comment_obj);
 
                 foreach ($issue_comment_obj as $key => $issue_comment) {
 
-                    $issue_comment_id = $issue_comment->id;                
+                    $issue_comment_id = $issue_comment->id;
                     $ch = curl_init();
                     curl_setopt($ch, CURLOPT_URL, 'https://www.drupal.org/api-d7/comment.json?cid=' . $issue_comment_id);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -92,7 +105,6 @@ if (empty($values)) {
 
                     $issue_commentid_obj = json_decode($response);
 
-                   
                     if (isset($issue_commentid_obj->list[0]->comment_body->value)) {
                         $comment = $issue_commentid_obj->list[0]->comment_body->value;
                     } else {
@@ -100,7 +112,7 @@ if (empty($values)) {
                     }
                     if (strpos($comment, 'commitlog') !== false) {
                         $credit_timestamp = $issue_commentid_obj->list[0]->created;
-                        $credit_date = date('d/m/Y', $credit_timestamp);        
+                        $credit_date = date('d/m/Y', $credit_timestamp);
                         echo "\033[00;32mSuccess = " . "Issue Credit Date Found Comment Number " . $key . " Bottom" . "\033[0m\n";
                         break;
                     } else {
@@ -166,10 +178,10 @@ if (empty($values)) {
         }
 
         //Request to update the spreadsheet.
-        $update_range = "Contrib issues!" . "A" . $update_start_index . ":" . "H" . $update_start_index;
-        
-        $values = [[$issue_title, $issue_status, $issue_url, $author, $author_comment, $issue_picked_date, $credit_date, $closed_date]];
+        $update_range = "Core Issues!" . "A" . $update_start_index . ":" . "I" . $update_start_index;
 
+        //$values = [[$issue_title, $issue_status, $issue_url, $project_name, $author, $author_comment, $issue_picked_date, $credit_date, $closed_date]];
+        $values = [[$issue_title, $issue_status, $issue_url]];
         if (isset($issue_arrayobj->list[0]->title)) {
             echo 'UPDATING ' . $update_range . PHP_EOL;
         }
