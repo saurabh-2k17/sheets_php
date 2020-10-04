@@ -17,8 +17,9 @@ $service = new Google_Service_Sheets($client);
 $spreadsheetId = "1A4RASO6eKfG-l2VF6zLnW8U5C1lRIRHWqQnir2n824k";
 
 // User Input for reading columns. like A2:G10.
-echo "Please mention the columns to be read \n";
-$read_input = rtrim(fgets(STDIN));
+//echo "Please mention the columns to be read \n";
+//$read_input = rtrim(fgets(STDIN));
+$read_input = 'A2:I300';
 
 // Step 2: Change the Sheet Name.
 $get_range = "Core Issues!" . $read_input;
@@ -35,54 +36,55 @@ else {
   $websiteUrl = 'https://www.drupal.org/api-d7/node.json?type=project_issue&nid=';
 
   // From which row would you like to start. Like 2
-  echo "Please mention the starting index: \n";
-  $update_start_index = rtrim(fgets(STDIN));
+  //  echo "Please mention the starting index: \n";
+  //  $update_start_index = rtrim(fgets(STDIN));
+  $update_start_index = '2';
 
   // Till which row would you like to update. Like 10
-  echo "Please mention the last index: \n";
-    $update_stop_index = rtrim(fgets(STDIN));
+  //  echo "Please mention the last index: \n";
+  //  $update_stop_index = rtrim(fgets(STDIN));
+  $update_stop_index = '300';
 
   $failure_cases = $success_cases = 0;
 
   foreach ($values as $key => $value) {
+    $issue_url = $project_name = $issue_id = $author = $author_comment = $issue_picked_date = $credit_date = $closed_date = '';
 
-    $issue_url = $value[2];
-
-    if (isset($value[4])) {
-      $author = $value[4];
-    }
-    else {
-      $author = '';
-    }
-
-    if (isset($value[5])) {
-      $author_comment = $value[5];
-    }
-    else {
-      $author_comment = '';
-    }
-
-    if (isset($value[6])) {
-      $issue_picked_date = $value[6];
-    }
-    else {
-      $issue_picked_date = '';
-    }
-
-    $issue_obj = explode("/", $issue_url);
-
-    if (!empty($issue_obj[4])) {
-      $project_name = $issue_obj[4];
+    $issue_url = explode("/", $value[2]);
+    if (!empty($issue_url[4])) {
+      $project_name = $issue_url[4];
     }
     else {
       print_r("\033[01;31mProject name not found " . $update_start_index . "\033[0m\n");
+      continue;
     }
 
-    if (!empty($issue_obj[6])) {
-      $issue_id = $issue_obj[6];
+    if (!empty($issue_url[6])) {
+      $issue_id = $issue_url[6];
     }
     else {
       print_r("\033[01;31mIssue ID not found " . $update_start_index . "\033[0m\n");
+      continue;
+    }
+
+    if (!empty($value[4])) {
+      $author = ucwords($value[4]);
+    }
+
+    if (!empty($value[5])) {
+      $author_comment = $value[5];
+    }
+
+    if (!empty($value[6])) {
+      $issue_picked_date = $value[6];
+    }
+
+    if (!empty($value[7])) {
+      $credit_date = $value[7];
+    }
+
+    if (!empty($value[8])) {
+      $closed_date = $value[8];
     }
 
     $ch = curl_init();
@@ -100,7 +102,15 @@ else {
       $changed_date = $issue_arrayobj->list[0]->changed;
 
       // Check if issue is closed, then find the Credit date, patch commit date.
-      if ($issue_status_id !== '1' && $issue_status_id !== '4' && $issue_status_id !== '8' && $issue_status_id !== '13' && $issue_status_id !== '14' && $issue_status_id !== '15' && $issue_status_id !== '16') {
+      if (!in_array($issue_status_id, [
+          '1',
+          '4',
+          '8',
+          '13',
+          '14',
+          '15',
+          '16',
+        ]) && empty($credit_date) && empty($closed_date)) {
         $closed_date = date('d/m/Y', $changed_date);
 
         $issue_comment_obj = $issue_arrayobj->list[0]->comments;
@@ -131,16 +141,10 @@ else {
             break;
           }
           else {
-            $credit_date = '';
             echo "\033[00;35mFailure = " . "Issue Credit Date Not Found For Comment Number " . $key . " Bottom" . "\033[0m\n";
           }
         }
       }
-      else {
-        $closed_date = '';
-        $credit_date = '';
-      }
-
     }
     else {
       $failure_cases++;
@@ -198,12 +202,24 @@ else {
 
     // Request to update the spreadsheet, for Drupal Practice Spreadsheet.
     $update_range = "Core Issues!" . "A" . $update_start_index . ":" . "I" . $update_start_index;
-    $values = [[$issue_title, $issue_status, $issue_url, $project_name, $author, $author_comment, $issue_picked_date, $credit_date, $closed_date]];
+    $values = [
+      [
+        $issue_title,
+        $issue_status,
+        $value[2],
+        $project_name,
+        $author,
+        $author_comment,
+        $issue_picked_date,
+        $credit_date,
+        $closed_date,
+      ],
+    ];
 
     // Request to update the spreadsheet, for Monthly Spreadsheet.
-//    $update_range = "April-2020 [Internal]!" . "A" . $update_start_index . ":" . "I" . $update_start_index;
-//    //$values = [[$issue_title, $issue_stat us, $issue_url]];
-//    $values = [[$issue_title, $issue_status, $issue_url, $project_name, $author, $author_comment, $issue_picked_date, $credit_date, $closed_date]];
+    //    $update_range = "April-2020 [Internal]!" . "A" . $update_start_index . ":" . "I" . $update_start_index;
+    //    //$values = [[$issue_title, $issue_stat us, $issue_url]];
+    //    $values = [[$issue_title, $issue_status, $issue_url, $project_name, $author, $author_comment, $issue_picked_date, $credit_date, $closed_date]];
 
     if (isset($issue_arrayobj->list[0]->title)) {
       echo 'UPDATING ' . $update_range . PHP_EOL;
